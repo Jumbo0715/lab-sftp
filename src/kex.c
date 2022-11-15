@@ -4,9 +4,9 @@
  * @brief SSH transport layer key exchange functionalities.
  * @version 0.1
  * @date 2022-10-05
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include "libsftp/kex.h"
@@ -109,9 +109,9 @@ int ssh_set_client_kex(ssh_session session) {
 
 /**
  * @brief Send supported cipher suites for algorithm negotiation.
- * 
- * @param session 
- * @return int 
+ *
+ * @param session
+ * @return int
  */
 int ssh_send_kex(ssh_session session) {
     struct ssh_kex_struct *kex = &session->next_crypto->client_kex;
@@ -126,6 +126,7 @@ int ssh_send_kex(ssh_session session) {
 
     for (int i = 0; i < SSH_KEX_METHODS; ++i) {
         str = ssh_string_from_char(kex->methods[i]);
+        LOG_DEBUG("name list %d: %s", i, ssh_string_get_char(str));
         if (ssh_buffer_add_ssh_string(session->out_hashbuf, str) < 0) {
             goto error;
         }
@@ -152,9 +153,9 @@ error:
 
 /**
  * @brief Wait for algorithm negotiation reply.
- * 
- * @param session 
- * @return int 
+ *
+ * @param session
+ * @return int
  */
 int ssh_receive_kex(ssh_session session) {
     uint8_t msg_type = 0;
@@ -185,7 +186,12 @@ int ssh_receive_kex(ssh_session session) {
     for (int i = 0; i < SSH_KEX_METHODS; i++) {
         /* parse name-lists, don't forget to add `in_hashbuf` */
         // LAB: insert your code here.
-
+        ssh_string namelist = ssh_buffer_get_ssh_string(session->in_buffer);
+        LOG_DEBUG("name list %d: %s", i, ssh_string_get_char(namelist));
+        if (ssh_buffer_add_ssh_string(session->in_hashbuf, namelist) < 0) {
+            return SSH_ERROR;
+        }
+        strings[i] = strdup(ssh_string_get_char(namelist));
     }
 
     rc = ssh_buffer_unpack(session->in_buffer, "bd", &first_kex_follows,
@@ -218,19 +224,112 @@ error:
 }
 
 /**
- * @brief Select an agreed cipher suite based on both ends' negotiation messages.
- * 
- * @param session 
- * @return int 
+ * @brief Select an agreed cipher suite based on both ends' negotiation
+ * messages.
+ *
+ * @param session
+ * @return int
  */
 int ssh_select_kex(ssh_session session) {
     struct ssh_kex_struct *server = &session->next_crypto->server_kex;
     struct ssh_kex_struct *client = &session->next_crypto->client_kex;
 
     for (int i = 0; i < SSH_KEX_METHODS; ++i) {
-        /* select negotiated algorithms and store them in `next_crypto->kex_methods` */
+        /* select negotiated algorithms and store them in
+         * `next_crypto->kex_methods` */
         // LAB: insert your code here.
-
+        LOG_DEBUG("selecting %d kex method.", i);
+        LOG_DEBUG("server: %s", server->methods[i]);
+        LOG_DEBUG("client: %s", client->methods[i]);
+        // naive compare
+        char *client_str_ptr = client->methods[i];
+        size_t client_str_len = 0;
+        bool selected = false;
+        // check every client method
+        while (*client_str_ptr != '\0') {
+            // get a client method
+            if (*client_str_ptr == ',') {
+                char *server_str_ptr = server->methods[i];
+                size_t server_str_len = 0;
+                // check every server method
+                while (*server_str_ptr != '\0') {
+                    // get a server method
+                    if (*server_str_ptr == ',') {
+                        // the same
+                        if (strncmp(client_str_ptr - client_str_len,
+                                    server_str_ptr - server_str_len,
+                                    server_str_len) == 0) {
+                            char method[256] = {0};
+                            strncpy(method, server_str_ptr - server_str_len,
+                                    server_str_len);
+                            // select and quit
+                            selected = true;
+                            session->next_crypto->kex_methods[i] =
+                                strdup(method);
+                            break;
+                        }
+                        server_str_len = 0;
+                    }
+                    server_str_ptr++;
+                    server_str_len++;
+                }
+                if (strncmp(client_str_ptr - client_str_len,
+                            server_str_ptr - server_str_len,
+                            server_str_len) == 0) {
+                    char method[256] = {0};
+                    strncpy(method, server_str_ptr - server_str_len,
+                            server_str_len);
+                    // select and quit
+                    selected = true;
+                    session->next_crypto->kex_methods[i] = strdup(method);
+                }
+                if (selected) {
+                    break;
+                }
+                client_str_ptr++;
+                client_str_len = 0;
+            } else {
+                client_str_ptr++;
+                client_str_len++;
+            }
+        }
+        char *server_str_ptr = server->methods[i];
+        size_t server_str_len = 0;
+        // check every server method
+        while (*server_str_ptr != '\0') {
+            // get a server method
+            if (*server_str_ptr == ',') {
+                // the same
+                if (strncmp(client_str_ptr - client_str_len,
+                            server_str_ptr - server_str_len,
+                            server_str_len) == 0) {
+                    char method[256] = {0};
+                    strncpy(method, server_str_ptr - server_str_len,
+                            server_str_len);
+                    // select and quit
+                    selected = true;
+                    session->next_crypto->kex_methods[i] = strdup(method);
+                    break;
+                }
+                server_str_ptr++;
+                server_str_len = 0;
+            } else {
+                server_str_ptr++;
+                server_str_len++;
+            }
+        }
+        if (strncmp(client_str_ptr - client_str_len,
+                    server_str_ptr - server_str_len, server_str_len) == 0) {
+            char method[256] = {0};
+            strncpy(method, server_str_ptr - server_str_len, server_str_len);
+            // select and quit
+            selected = true;
+            session->next_crypto->kex_methods[i] = strdup(method);
+        }
+        client_str_ptr++;
+        client_str_len = 0;
+        LOG_DEBUG("selected method %d: %s", i,
+                  session->next_crypto->kex_methods[i]);
     }
     session->next_crypto->kex_type = SSH_KEX_DH_GROUP14_SHA256;
     return SSH_OK;
