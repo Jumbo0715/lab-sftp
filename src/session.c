@@ -185,7 +185,7 @@ int receive_id_str(ssh_session session) {
     char *ptr = buffer;
 
     /**
-     * The server MAY send other lines of data before sending the version 
+     * The server MAY send other lines of data before sending the version
      * string.  Each line SHOULD be terminated by a Carriage Return and Line
      * Feed.  Such lines MUST NOT begin with "SSH-", and SHOULD be encoded
      * in ISO-10646 UTF-8 [RFC3629] (language is not specified).  Clients
@@ -198,6 +198,28 @@ int receive_id_str(ssh_session session) {
         ssh_socket_read(session->socket, &buffer[i], 1);
         // LAB: insert your code here.
 
+        // Check line end.
+        if (buffer[i] == '\n' && (i > 0 && buffer[i - 1] == '\r')) {
+            // Set string end.
+            buffer[i + 1] = 0;
+            if (strncmp(buffer, "SSH-", 4) != 0) {
+                LOG_DEBUG("received: %s", buffer);
+                i = 0;
+            } else {
+                float protover;
+                char softver[256] = {0};
+                char comment[256] = {0};
+                // Read version.
+                sscanf(buffer, "SSH-%f-%s %s", &protover, softver, comment);
+                LOG_DEBUG("protocol version: %.1f", protover);
+                LOG_DEBUG("software version: %s", softver);
+                LOG_DEBUG("comments: %s", comment);
+                session->banner = ssh_string_from_char(buffer);
+                session->server_id_str = strdup(buffer);
+                session->protoversion = (int)protover;
+                return SSH_OK;
+            }
+        }
     }
     /* this line should not be reached */
     return SSH_ERROR;
