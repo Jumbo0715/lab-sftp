@@ -315,6 +315,8 @@ int ssh_connect(ssh_session session) {
         goto error;
     }
 
+    LOG_DEBUG("leave dh handshake");
+
     /**
      * 2.4 Send user authentication request
      *
