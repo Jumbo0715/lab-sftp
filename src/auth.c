@@ -42,6 +42,9 @@ int ssh_request_auth(ssh_session session) {
     if (rc != SSH_OK) return rc;
 
     rc = ssh_buffer_unpack(session->in_buffer, "bs", &type, &service);
+
+    LOG_DEBUG("received type %d, service %s", type, service);
+
     if (rc != SSH_OK || type != SSH_MSG_SERVICE_ACCEPT ||
         strcmp(service, "ssh-userauth") != 0) {
         SAFE_FREE(service);

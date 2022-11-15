@@ -362,13 +362,6 @@ int ssh_packet_send(ssh_session session) {
     payload = (uint8_t *)ssh_buffer_get(session->out_buffer);
     type = payload[0]; /* type is the first byte of the packet now */
 
-    int i = 0;
-    while(i < payload_size) {
-        putchar(payload[i++]);
-    }
-    putchar('\n');
-    fflush(stdout);
-
     padding_size =
         (blocksize -
          ((blocksize - lenfield_blocksize + payload_size + 5) % blocksize));
