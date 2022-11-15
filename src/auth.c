@@ -123,17 +123,20 @@ int ssh_userauth_password(ssh_session session, const char *password) {
         switch (type) {
             case SSH_MSG_USERAUTH_BANNER:
                 // LAB: insert your code here.
+                break;
 
             case SSH_MSG_USERAUTH_SUCCESS:
                 // LAB: insert your code here.
+                break;
 
             case SSH_MSG_USERAUTH_PASSWD_CHANGEREQ:
             case SSH_MSG_USERAUTH_FAILURE:
                 // LAB: insert your code here.
+                break;
 
             default:
                 // LAB: insert your code here.
-
+                break;
         }
     }
 

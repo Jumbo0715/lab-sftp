@@ -100,9 +100,11 @@ static int channel_open(ssh_channel channel, const char *type, uint32_t window,
         switch (reply_type) {
             case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
                 // LAB: insert your code here.
+                break;
 
             case SSH_MSG_CHANNEL_OPEN_FAILURE:
                 // LAB: insert your code here.
+                break;
 
             case SSH_MSG_GLOBAL_REQUEST:
                 /**
@@ -123,10 +125,11 @@ static int channel_open(ssh_channel channel, const char *type, uint32_t window,
                  *
                  */
                 // LAB: insert your code here.
+                break;
 
             default:
                 // LAB: insert your code here.
-
+                break;
         }
     }
 
@@ -489,6 +492,7 @@ int ssh_channel_read(ssh_channel channel, void *dest, uint32_t count) {
         if (ssh_buffer_get_len(buf) > 0) {
             /* try to read channel data from static buffer first */
             // LAB: insert your code here.
+            break;
 
         } else {
             /* static buffer has insufficient data, read another
@@ -509,22 +513,27 @@ int ssh_channel_read(ssh_channel channel, void *dest, uint32_t count) {
                 case SSH_MSG_CHANNEL_WINDOW_ADJUST:
                     /* window adjust message could happen here */
                     // LAB: insert your code here.
+                    break;
 
                 case SSH_MSG_CHANNEL_DATA:
                     // LAB: insert your code here.
+                    break;
 
                 case SSH_MSG_CHANNEL_EOF:
                     // LAB: insert your code here.
+                    break;
 
                 case SSH_MSG_CHANNEL_CLOSE:
                     // LAB: insert your code here.
+                    break;
 
                 case SSH_MSG_CHANNEL_REQUEST:
                     // LAB: insert your code here.
+                    break;
 
                 default:
                     // LAB: insert your code here.
-
+                    break;
             }
         }
     }

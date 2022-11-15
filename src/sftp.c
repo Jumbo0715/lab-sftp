@@ -249,13 +249,15 @@ sftp_file sftp_open(sftp_session sftp, const char *filename, int flags,
     switch (response->type) {
         case SSH_FXP_STATUS:
             // LAB: insert your code here.
+            break;
 
         case SSH_FXP_HANDLE:
             // LAB: insert your code here.
+            break;
 
         default:
             // LAB: insert your code here.
-
+            break;
     }
     return NULL;
 }
@@ -302,7 +304,8 @@ int sftp_close(sftp_file file) {
 
     switch (response->type) {
         // LAB: insert your code here.
-
+        default:
+            break;
     }
 }
 
@@ -353,7 +356,8 @@ int32_t sftp_read(sftp_file file, void *buf, uint32_t count) {
 
     switch (response->type) {
         // LAB: insert your code here.
-
+        default:
+            break;
     }
     return SSH_ERROR;
 }
@@ -403,7 +407,8 @@ int32_t sftp_write(sftp_file file, const void *buf, uint32_t count) {
 
         switch (response->type) {
             // LAB: insert your code here.
-
+            default:
+                break;
         }
     }
     return count - nleft;
