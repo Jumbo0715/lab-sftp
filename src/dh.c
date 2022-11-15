@@ -638,6 +638,7 @@ static int dh_set_new_keys(ssh_session session) {
     /* NEWKEYS received, now its time to activate encryption */
     // LAB: insert your code here.
     session->current_crypto = crypto;
+    session->current_crypto->used = SSH_DIRECTION_BOTH;
 
     /* next_crypto should be deprecated from now if re-kex is not supportes */
     session->next_crypto = NULL;

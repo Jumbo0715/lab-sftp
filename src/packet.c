@@ -280,7 +280,7 @@ int ssh_packet_receive(ssh_session session) {
         }
         /* verify MAC, see `packet_hmac_verify` */
         // LAB: insert your code here.
-        packet_hmac_verify(session, data, packet_len, &mac, crypto->in_hmac);
+        packet_hmac_verify(session, data, packet_len, mac, crypto->in_hmac);
 
         if (rc != SSH_OK) {
             ssh_set_error(SSH_FATAL, "hmac error");
@@ -361,6 +361,13 @@ int ssh_packet_send(ssh_session session) {
 
     payload = (uint8_t *)ssh_buffer_get(session->out_buffer);
     type = payload[0]; /* type is the first byte of the packet now */
+
+    int i = 0;
+    while(i < payload_size) {
+        putchar(payload[i++]);
+    }
+    putchar('\n');
+    fflush(stdout);
 
     padding_size =
         (blocksize -
