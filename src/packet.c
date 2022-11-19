@@ -360,6 +360,11 @@ int ssh_packet_send(ssh_session session) {
     }
 
     payload = (uint8_t *)ssh_buffer_get(session->out_buffer);
+
+    // char dump[256] = {0};
+    // LOG_DEBUG("before encrypt: %s", dump);
+    // ssh_log_hexdump(dump, payload, payload_size);
+
     type = payload[0]; /* type is the first byte of the packet now */
 
     padding_size =
@@ -394,7 +399,17 @@ int ssh_packet_send(ssh_session session) {
                                  hmac_digest_len(hmac_type));
         if (rc < 0) return SSH_ERROR;
     }
+    /*
+        payload_size = ssh_buffer_get_len(session->out_buffer);
+        if (payload_size < 1) {
+            return SSH_ERROR;
+        }
 
+        payload = (uint8_t *)ssh_buffer_get(session->out_buffer);
+
+        LOG_DEBUG("after encrypt: %s", dump);
+        ssh_log_hexdump(dump, payload, payload_size);
+    */
     rc = ssh_socket_write(session->socket, ssh_buffer_get(session->out_buffer),
                           ssh_buffer_get_len(session->out_buffer));
     if (rc < 0) return SSH_ERROR;

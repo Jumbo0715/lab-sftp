@@ -119,6 +119,9 @@ int ssh_userauth_password(ssh_session session, const char *password) {
      *
      */
 
+    char banner[1024] = {0};
+    char lang[256] = {0};
+    ssh_string again_namelist;
     while (rc != SSH_ERROR) {
         rc = ssh_packet_receive(session);
         if (rc != SSH_OK) goto error;
@@ -126,19 +129,38 @@ int ssh_userauth_password(ssh_session session, const char *password) {
         switch (type) {
             case SSH_MSG_USERAUTH_BANNER:
                 // LAB: insert your code here.
+                rc = ssh_buffer_unpack(session->in_buffer, "ss", banner, lang);
+                if (rc != SSH_OK) goto error;
+                printf("%s, lang=%s", banner, lang);
                 break;
 
             case SSH_MSG_USERAUTH_SUCCESS:
                 // LAB: insert your code here.
-                break;
+                printf("authentification success\n");
+                return SSH_OK;
+                // break;
 
             case SSH_MSG_USERAUTH_PASSWD_CHANGEREQ:
             case SSH_MSG_USERAUTH_FAILURE:
                 // LAB: insert your code here.
-                break;
+                again_namelist = ssh_buffer_get_ssh_string(session->in_buffer);
+                if (again_namelist == NULL) goto error;
+                uint8_t partial_succ = 0;
+                rc = ssh_buffer_get_u8(session->in_buffer, &partial_succ);
+                if (rc != SSH_OK) goto error;
+                if (partial_succ) {
+                    printf("Authentification with partial success.\n");
+                } else {
+                    printf("Authentification failed.\n");
+                }
+                printf("continue name list: %s\nPlease try again.\n",
+                       ssh_string_get_char(again_namelist));
+                return SSH_AGAIN;
+                // break;
 
             default:
                 // LAB: insert your code here.
+                fprintf(stderr, "unexpected authentic response type %d", type);
                 break;
         }
     }
