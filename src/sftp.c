@@ -237,7 +237,25 @@ sftp_file sftp_open(sftp_session sftp, const char *filename, int flags,
 
     /* pack a new SFTP packet and send it using `sftp_packet_write` */
     // LAB: insert your code here.
+    rc = ssh_buffer_pack(buffer, "dsddd", id, filename, perm_flags, attr_flags, mode);
 
+    if (rc != SSH_OK) {
+        LOG_CRITICAL("can not pack buffer");
+        ssh_set_error(SSH_FATAL, "buffer error");
+        ssh_buffer_free(buffer);
+        return NULL;
+    }
+
+
+
+    if (sftp_packet_write(sftp, SSH_FXP_OPEN, buffer) < 0) {
+        LOG_CRITICAL("can not send open request");
+        ssh_set_error(SSH_FATAL, "open request error");
+        ssh_buffer_free(buffer);
+        return NULL;
+    }
+
+    ssh_buffer_free(buffer);
 
     response = sftp_packet_read(sftp);
     if (response == NULL) {
@@ -249,14 +267,48 @@ sftp_file sftp_open(sftp_session sftp, const char *filename, int flags,
     switch (response->type) {
         case SSH_FXP_STATUS:
             // LAB: insert your code here.
+            status = sftp_parse_status(response);
+            if (status == NULL) {
+                LOG_ERROR("can not parse status");
+                ssh_set_error(SSH_FATAL, "status error");
+                sftp_packet_free(response);
+                return NULL;
+            }
+
+            if (status->status == SSH_FX_OK) {
+                LOG_ERROR("unexpected status code");
+                ssh_set_error(SSH_FATAL, "status error");
+                sftp_packet_free(response);
+                return NULL;
+            }
+
+            ssh_set_error(SSH_REQUEST_DENIED, "status code %d", status->status);
+            sftp_packet_free(response);
+            return NULL;
+
             break;
 
         case SSH_FXP_HANDLE:
             // LAB: insert your code here.
+            handle = sftp_parse_handle(response, id);
+            if (handle == NULL) {
+                LOG_ERROR("can not parse handle");
+                ssh_set_error(SSH_FATAL, "handle error");
+                sftp_packet_free(response);
+                return NULL;
+            }
+
+            sftp_packet_free(response);
+            return handle;
+
             break;
 
         default:
             // LAB: insert your code here.
+            LOG_ERROR("unexpected server response");
+            ssh_set_error(SSH_FATAL, "received code %d during open", response->type);
+            sftp_packet_free(response);
+
             break;
     }
     return NULL;
@@ -304,7 +356,34 @@ int sftp_close(sftp_file file) {
 
     switch (response->type) {
         // LAB: insert your code here.
+        case SSH_FXP_STATUS:
+            status = sftp_parse_status(response);
+            if (status == NULL) {
+                LOG_ERROR("can not parse status");
+                ssh_set_error(SSH_FATAL, "status error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            if (status->status != SSH_FX_OK) {
+                LOG_ERROR("unexpected status code");
+                ssh_set_error(SSH_FATAL, "status error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            sftp_packet_free(response);
+            return SSH_OK;
+
+            break;
+
         default:
+            LOG_ERROR("unexpected server response");
+            ssh_set_error(SSH_FATAL, "received code %d during close", response->type);
+            sftp_packet_free(response);
+
+            return SSH_ERROR;
+
             break;
     }
 }
@@ -356,7 +435,64 @@ int32_t sftp_read(sftp_file file, void *buf, uint32_t count) {
 
     switch (response->type) {
         // LAB: insert your code here.
+        case SSH_FXP_DATA:
+            rc = ssh_buffer_unpack(response->payload, "dS", &recv_id, &data);
+            if (rc != SSH_OK) {
+                LOG_ERROR("can not unpack buffer");
+                ssh_set_error(SSH_FATAL, "buffer error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            if (recv_id != id) {
+                LOG_ERROR("unexpected id");
+                ssh_set_error(SSH_FATAL, "id error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            recvlen = ssh_string_len(data);
+            if (recvlen > count) {
+                LOG_ERROR("received data length is larger than requested");
+                ssh_set_error(SSH_FATAL, "data length error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            memcpy(buf, ssh_string_data(data), recvlen);
+            file->offset += recvlen;
+            sftp_packet_free(response);
+            return recvlen;
+
+            break;
+
+        case SSH_FXP_STATUS:
+            status = sftp_parse_status(response);
+            if (status == NULL) {
+                LOG_ERROR("can not parse status");
+                ssh_set_error(SSH_FATAL, "status error");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+            }
+
+            if (status->status == SSH_FX_EOF) {
+                file->eof = 1;
+                sftp_packet_free(response);
+                return 0;
+            }
+
+            LOG_ERROR("unexpected status code");
+            ssh_set_error(SSH_FATAL, "status error");
+            sftp_packet_free(response);
+            return SSH_ERROR;
+
+            break;
+        
         default:
+            LOG_ERROR("unexpected handle");
+            sftp_packet_free(response);
+            return SSH_ERROR;
+
             break;
     }
     return SSH_ERROR;
@@ -407,6 +543,41 @@ int32_t sftp_write(sftp_file file, const void *buf, uint32_t count) {
 
         switch (response->type) {
             // LAB: insert your code here.
+            case SSH_FXP_STATUS:
+                status = sftp_parse_status(response);
+                if (status == NULL) {
+                    LOG_ERROR("can not parse status");
+                    ssh_set_error(SSH_FATAL, "status error");
+                    sftp_packet_free(response);
+                    return SSH_ERROR;
+                }
+
+                if (status->status != SSH_FX_OK) {
+                    LOG_ERROR("unexpected status code");
+                    ssh_set_error(SSH_FATAL, "status error");
+                    sftp_packet_free(response);
+                    return SSH_ERROR;
+                }
+
+                file->offset += nwrite;
+                nleft -= nwrite;
+                sftp_packet_free(response);
+                break;
+
+            case SSH_FXP_HANDLE:
+                LOG_ERROR("unexpected handle");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+
+                break;
+
+            case SSH_FXP_DATA:
+                LOG_ERROR("unexpected data");
+                sftp_packet_free(response);
+                return SSH_ERROR;
+
+                break;
+
             default:
                 break;
         }
