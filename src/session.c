@@ -201,7 +201,7 @@ int receive_id_str(ssh_session session) {
         // Check line end.
         if (buffer[i] == '\n' && (i > 0 && buffer[i - 1] == '\r')) {
             // Set string end.
-            buffer[i + 1] = 0;
+            buffer[i - 1] = 0;
             if (strncmp(buffer, "SSH-", 4) != 0) {
                 LOG_DEBUG("received: %s", buffer);
                 i = 0;
@@ -216,6 +216,7 @@ int receive_id_str(ssh_session session) {
                 LOG_DEBUG("comments: %s", comment);
                 session->banner = ssh_string_from_char(buffer);
                 session->server_id_str = strdup(buffer);
+                LOG_NOTICE("%s", session->server_id_str);
                 session->protoversion = (int)protover;
                 return SSH_OK;
             }
@@ -274,6 +275,8 @@ int ssh_connect(ssh_session session) {
         LOG_ERROR("failed to receive server id str");
         goto error;
     }
+    LOG_NOTICE("server identification string: %s", session->server_id_str);
+
 
     /**
      * 2.2 algorithm negotiation
